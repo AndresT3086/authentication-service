@@ -50,7 +50,7 @@ jobs:
 
       - name: Build, test and analyze
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_AUTH }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/auth_db
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
