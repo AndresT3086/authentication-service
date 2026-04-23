@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,6 +29,7 @@ import com.logistics.authentication.infrastructure.adapter.in.web.security.JwtPr
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -45,9 +47,11 @@ public class AuthController {
 			value = "/login",
 			produces = { MediaType.APPLICATION_JSON_VALUE, "application/hal+json" },
 			consumes = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<EntityModel<LoginResponseBody>> login(@Valid @RequestBody LoginRequest request) {
+	public ResponseEntity<EntityModel<LoginResponseBody>> login(
+			@Valid @RequestBody LoginRequest request,
+			HttpServletRequest httpRequest) {
 		var result = loginUseCase.login(new LoginCommand(request.email(), request.password()));
-		return ResponseEntity.ok(toLoginModel(result));
+		return ResponseEntity.ok(toLoginModel(result, httpRequest));
 	}
 
 	@Operation(
@@ -57,12 +61,14 @@ public class AuthController {
 			value = "/refresh",
 			produces = { MediaType.APPLICATION_JSON_VALUE, "application/hal+json" },
 			consumes = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<EntityModel<LoginResponseBody>> refresh(@Valid @RequestBody RefreshRequest request) {
+	public ResponseEntity<EntityModel<LoginResponseBody>> refresh(
+			@Valid @RequestBody RefreshRequest request,
+			HttpServletRequest httpRequest) {
 		var result = refreshTokenUseCase.refresh(new RefreshCommand(request.refreshToken()));
-		return ResponseEntity.ok(toLoginModel(result));
+		return ResponseEntity.ok(toLoginModel(result, httpRequest));
 	}
 
-	private EntityModel<LoginResponseBody> toLoginModel(LoginResult result) {
+	private EntityModel<LoginResponseBody> toLoginModel(LoginResult result, HttpServletRequest request) {
 		var body = new LoginResponseBody(
 				result.accessToken(),
 				result.tokenType(),
@@ -71,9 +77,9 @@ public class AuthController {
 				result.refreshToken(),
 				result.refreshExpiresInSeconds());
 		EntityModel<LoginResponseBody> model = EntityModel.of(body);
-		model.add(Link.of("/swagger-ui/index.html", "describedby"));
-		model.add(Link.of("/v3/api-docs", "openapi"));
-		model.add(Link.of("/api/v1/auth/refresh", "refresh"));
+		model.add(buildLink(request, "/swagger-ui/index.html", "describedby"));
+		model.add(buildLink(request, "/v3/api-docs", "openapi"));
+		model.add(buildLink(request, "/api/v1/auth/refresh", "refresh"));
 		return model;
 	}
 
@@ -82,7 +88,9 @@ public class AuthController {
 			description = "Devuelve datos del token Bearer (RBAC).",
 			security = @SecurityRequirement(name = "bearer-jwt"))
 	@GetMapping(value = "/me", produces = { MediaType.APPLICATION_JSON_VALUE, "application/hal+json" })
-	public ResponseEntity<EntityModel<MeResponseBody>> me(Authentication authentication) {
+	public ResponseEntity<EntityModel<MeResponseBody>> me(
+			Authentication authentication,
+			HttpServletRequest request) {
 		if (authentication == null || !(authentication.getPrincipal() instanceof JwtPrincipal p)) {
 			return ResponseEntity.status(401).build();
 		}
@@ -91,8 +99,17 @@ public class AuthController {
 				.toList();
 		var body = new MeResponseBody(p.userId(), p.email(), roles);
 		EntityModel<MeResponseBody> model = EntityModel.of(body);
-		model.add(Link.of("/api/v1/auth/me", "self"));
-		model.add(Link.of("/swagger-ui/index.html", "describedby"));
+		model.add(buildLink(request, "/api/v1/auth/me", "self"));
+		model.add(buildLink(request, "/swagger-ui/index.html", "describedby"));
 		return ResponseEntity.ok(model);
+	}
+
+	private static Link buildLink(HttpServletRequest request, String path, String rel) {
+		String href = ServletUriComponentsBuilder.fromRequestUri(request)
+				.replacePath(path)
+				.replaceQuery(null)
+				.build()
+				.toUriString();
+		return Link.of(href, rel);
 	}
 }

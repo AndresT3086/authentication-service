@@ -1,12 +1,35 @@
-# Build multi-etapa: no requiere Maven instalado localmente
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS build
-WORKDIR /src
-COPY pom.xml .
-COPY src ./src
-RUN mvn -q -DskipTests package
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-22 AS builder
 
-FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /src/target/authentication-service.jar app.jar
+
+# Copy pom.xml and download dependencies
+COPY pom.xml .
+
+# Download dependencies (this layer is cached if pom.xml hasn't changed)
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Build the application
+RUN mvn clean package -DskipTests -B
+
+# Stage 2: Runtime
+FROM eclipse-temurin:22-jre-noble
+
+WORKDIR /app
+
+# Copy JAR from builder stage
+COPY --from=builder /app/target/*.jar app.jar
+
+# Create non-root user for security
+RUN if ! id -u appuser >/dev/null 2>&1; then useradd -m appuser; fi \
+    && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]
