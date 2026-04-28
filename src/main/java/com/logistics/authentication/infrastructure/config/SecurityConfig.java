@@ -1,7 +1,5 @@
 package com.logistics.authentication.infrastructure.config;
 
-import java.util.List;
-
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,9 +15,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.logistics.authentication.infrastructure.adapter.in.web.dto.ApiErrorResponse;
@@ -36,7 +32,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-	private final CorsProperties corsProperties;
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final ObjectMapper objectMapper;
 	private final JsonAuthenticationEntryPoint jsonAuthenticationEntryPoint;
@@ -48,7 +43,6 @@ public class SecurityConfig {
                 // CSRF disabled because this is a stateless REST API using JWT authentication.
                 // No session or cookies are used, so CSRF protection is not required.
 				.csrf(AbstractHttpConfigurer::disable)
-				.cors(c -> c.configurationSource(corsConfigurationSource()))
 				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.headers(this::securityHeaders)
 				.exceptionHandling(e -> e
@@ -97,19 +91,4 @@ public class SecurityConfig {
 		return null;
 	}
 
-	@Bean
-	public CorsConfigurationSource corsConfigurationSource() {
-		CorsConfiguration config = new CorsConfiguration();
-		List<String> origins = corsProperties.allowedOriginList();
-		config.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:3000") : origins);
-		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-		config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Trace-Id"));
-		config.setExposedHeaders(List.of("X-Trace-Id"));
-		config.setAllowCredentials(true);
-		config.setMaxAge(3600L);
-
-		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-		source.registerCorsConfiguration("/**", config);
-		return source;
-	}
 }
