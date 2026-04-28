@@ -30,3 +30,7 @@ build/
 
 ### VS Code ###
 .vscode/
+DEPLOYMENT.md
+.env.example
+CORS_SECURITY.md
+src/main/resources/application-dev.properties

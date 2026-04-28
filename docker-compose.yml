@@ -15,17 +15,5 @@ services:
       timeout: 5s
       retries: 5
 
-  authentication-service:
-    build: .
-    depends_on:
-      auth-db:
-        condition: service_healthy
-    env_file:
-      - .env.prod
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-
 volumes:
   auth_pg_data:

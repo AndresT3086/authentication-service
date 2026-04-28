@@ -26,7 +26,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class JwtAuthenticationFilterTest {
 
-    private static final String SECRET = "this-is-a-very-long-secret-key-for-testing-hs256-algorithm!!";
+    private static final String SECRET =
+            "this-is-a-very-long-secret-key-for-testing-hs256-algorithm!!";
 
     @Mock
     private JwtProperties jwtProperties;
@@ -41,10 +42,18 @@ class JwtAuthenticationFilterTest {
         SecurityContextHolder.clearContext();
     }
 
-    @Test
-    void noAuthorizationHeader_passesThrough() throws Exception {
+    private MockHttpServletRequest createRequest(String path, String authorizationHeader) {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
+        request.setServletPath(path);
+        if (authorizationHeader != null) {
+            request.addHeader("Authorization", authorizationHeader);
+        }
+        return request;
+    }
+
+    @Test
+    void whenNoAuthorizationHeader_thenPassesThrough() throws Exception {
+        MockHttpServletRequest request = createRequest("/api/v1/users", null);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -55,12 +64,10 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void invalidToken_passesThrough_withUnauthorizedStatus() throws Exception {
+    void whenInvalidToken_thenReturns401() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer invalid.jwt.token");
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer invalid.jwt.token");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -71,7 +78,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void validToken_setsSecurityContext() throws Exception {
+    void whenValidToken_thenSetsSecurityContext() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
@@ -84,9 +91,7 @@ class JwtAuthenticationFilterTest {
                 .signWith(key)
                 .compact();
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -103,7 +108,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void expiredToken_returns401() throws Exception {
+    void whenExpiredToken_thenReturns401() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
@@ -116,9 +121,7 @@ class JwtAuthenticationFilterTest {
                 .signWith(key)
                 .compact();
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -131,12 +134,10 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void malformedToken_returns401() throws Exception {
+    void whenMalformedToken_thenReturns401() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer not.a.valid.jwt.at.all");
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer not.a.valid.jwt.at.all");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -148,22 +149,19 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void tokenWithNullRoles_setsEmptyAuthorities() throws Exception {
+    void whenTokenWithNullRoles_thenSetsEmptyAuthorities() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
         String token = Jwts.builder()
                 .subject("user-id-456")
                 .claim("email", "noroles@example.com")
-                // no roles claim at all
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 3600_000))
                 .signWith(key)
                 .compact();
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -175,10 +173,8 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void headerWithoutBearerPrefix_passesThrough() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Basic dXNlcjpwYXNz");
+    void whenHeaderWithoutBearerPrefix_thenPassesThrough() throws Exception {
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Basic dXNlcjpwYXNz");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -189,7 +185,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void validToken_withRolePrefixed_doesNotDoublePrefix() throws Exception {
+    void whenValidTokenWithRolePrefixed_thenDoesNotDoublePrefix() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
@@ -202,9 +198,7 @@ class JwtAuthenticationFilterTest {
                 .signWith(key)
                 .compact();
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
@@ -217,32 +211,28 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void shouldNotFilter_loginPath_returnsTrue() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/auth/login");
+    void whenLoginPath_thenShouldNotFilter() {
+        MockHttpServletRequest request = createRequest("/api/v1/auth/login", null);
         assertThat(filter.shouldNotFilter(request)).isTrue();
     }
 
     @Test
-    void shouldNotFilter_refreshPath_returnsTrue() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/auth/refresh");
+    void whenRefreshPath_thenShouldNotFilter() {
+        MockHttpServletRequest request = createRequest("/api/v1/auth/refresh", null);
         assertThat(filter.shouldNotFilter(request)).isTrue();
     }
 
     @Test
-    void shouldNotFilter_protectedPath_returnsFalse() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
+    void whenProtectedPath_thenShouldFilter() {
+        MockHttpServletRequest request = createRequest("/api/v1/users", null);
         assertThat(filter.shouldNotFilter(request)).isFalse();
     }
 
     @Test
-    void tokenWithSingleStringRole_extractsCorrectly() throws Exception {
+    void whenTokenWithSingleStringRole_thenExtractsCorrectly() throws Exception {
         when(jwtProperties.getSecret()).thenReturn(SECRET);
 
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
-        // Build token with roles as a single string (not a list)
         String token = Jwts.builder()
                 .subject("user-single-role")
                 .claim("email", "single@example.com")
@@ -252,9 +242,7 @@ class JwtAuthenticationFilterTest {
                 .signWith(key)
                 .compact();
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServletPath("/api/v1/users");
-        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletRequest request = createRequest("/api/v1/users", "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
