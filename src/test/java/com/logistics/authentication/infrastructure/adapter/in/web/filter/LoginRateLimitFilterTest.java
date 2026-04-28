@@ -25,48 +25,46 @@ class LoginRateLimitFilterTest {
         filter = new LoginRateLimitFilter(securityProperties, objectMapper);
     }
 
-    @Test
-    void requestsWithinLimit_passThrough() throws Exception {
-        for (int i = 0; i < 3; i++) {
+    private void executeLoginRequest(String remoteAddr, MockHttpServletResponse response) {
+        try {
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
             request.setServletPath("/api/v1/auth/login");
-            request.setRemoteAddr("192.168.1.1");
-            MockHttpServletResponse response = new MockHttpServletResponse();
+            request.setRemoteAddr(remoteAddr);
             MockFilterChain chain = new MockFilterChain();
-
             filter.doFilterInternal(request, response, chain);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
+    @Test
+    void whenLoginRequestsWithinLimit_thenPassThrough() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            executeLoginRequest("192.168.1.1", response);
             assertThat(response.getStatus()).isNotEqualTo(429);
         }
     }
 
     @Test
-    void requestsExceedingLimit_return429() throws Exception {
+    void whenLoginAttemptsExceedLimit_thenReturn429RateLimited() throws Exception {
+        String testIp = "10.0.0.1";
         // Exhaust the limit
         for (int i = 0; i < 3; i++) {
-            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
-            request.setServletPath("/api/v1/auth/login");
-            request.setRemoteAddr("10.0.0.1");
             MockHttpServletResponse response = new MockHttpServletResponse();
-            MockFilterChain chain = new MockFilterChain();
-            filter.doFilterInternal(request, response, chain);
+            executeLoginRequest(testIp, response);
         }
 
         // This one should be rate limited
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
-        request.setServletPath("/api/v1/auth/login");
-        request.setRemoteAddr("10.0.0.1");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain chain = new MockFilterChain();
-
-        filter.doFilterInternal(request, response, chain);
+        executeLoginRequest(testIp, response);
 
         assertThat(response.getStatus()).isEqualTo(429);
         assertThat(response.getContentType()).isEqualTo("application/json");
     }
 
     @Test
-    void getNonLoginRequest_isNotRateLimited() throws Exception {
+    void whenNonLoginRequest_thenNotRateLimited() throws Exception {
         for (int i = 0; i < 10; i++) {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/auth/me");
             request.setServletPath("/api/v1/auth/me");
@@ -81,22 +79,19 @@ class LoginRateLimitFilterTest {
     }
 
     @Test
-    void differentIps_areRateLimitedIndependently() throws Exception {
+    void whenDifferentIpsLogin_thenRateLimitedIndependently() throws Exception {
+        String ip1 = "10.0.0.10";
+        String ip2 = "10.0.0.20";
+
         // Exhaust limit for IP1
         for (int i = 0; i < 3; i++) {
-            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
-            request.setServletPath("/api/v1/auth/login");
-            request.setRemoteAddr("10.0.0.10");
             MockHttpServletResponse response = new MockHttpServletResponse();
-            filter.doFilterInternal(request, response, new MockFilterChain());
+            executeLoginRequest(ip1, response);
         }
 
         // IP2 should still work
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
-        request.setServletPath("/api/v1/auth/login");
-        request.setRemoteAddr("10.0.0.20");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        filter.doFilterInternal(request, response, new MockFilterChain());
+        executeLoginRequest(ip2, response);
 
         assertThat(response.getStatus()).isNotEqualTo(429);
     }

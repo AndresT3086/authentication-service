@@ -1,0 +1,76 @@
+services:
+  # Authentication Service
+  - type: web
+    name: authentication-service
+    runtime: docker
+    plan: free
+    buildCommand: ""
+    startCommand: ""
+    envVars:
+      # Spring Configuration
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: "8080"
+      
+      # API Configuration
+      - key: FORWARD_HEADERS_STRATEGY
+        value: "X_FORWARDED"
+      - key: MVC_PROBLEMDTLS_ENABLED
+        value: "true"
+      - key: WEB_ERROR_INCLUDE_STACKTRACE
+        value: "never"
+      
+      # Security Configuration
+      - key: SECURITY_HSTS_ENABLED
+        value: "true"
+      - key: LOGIN_RATE_LIMIT
+        value: "5"
+      
+      # Database Configuration
+      # NOTE: Set these as "Secret" environment variables in Render dashboard
+      - key: DB_URL
+      - key: DB_USER
+      - key: DB_PASSWORD
+      
+      # Flyway Configuration (Database Migrations)
+      - key: FLYWAY_ENABLED
+        value: "true"
+      - key: FLYWAY_LOCATIONS
+        value: "classpath:db/migration"
+      
+      # JPA/Hibernate Configuration
+      - key: JPA_OPEN_IN_VIEW
+        value: "false"
+      - key: HIBERNATE_TIME_ZONE
+        value: "UTC"
+      - key: JPA_HBM2DDL_AUTO
+        value: "validate"
+      - key: JPA_SHOW_SQL
+        value: "false"
+      
+      # JWT Configuration
+      # NOTE: Set JWT_SECRET as "Secret" environment variable in Render dashboard
+      - key: JWT_SECRET
+      - key: JWT_ACCESS_TOKEN_TTL_SECONDS
+        value: "3600"
+      - key: JWT_REFRESH_TOKEN_TTL_SECONDS
+        value: "604800"
+        
+      # OpenAPI / Swagger Configuration
+      - key: APIDOCS_PATH
+        value: "/v3/api-docs"
+      - key: SWAGGER_UI_PATH
+        value: "/swagger-ui.html"
+      
+      # Logging Configuration
+      - key: LOGGING_PATTERN_CONSOLE
+        value: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    
+    healthCheckPath: /actuator/health
+    dockerfile: Dockerfile
+    dockerContext: ./
+    scaling:
+      maxInstances: 2
+      minInstances: 1
+    disks: []
