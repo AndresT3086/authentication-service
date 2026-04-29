@@ -61,7 +61,7 @@ services:
       - key: LOGGING_PATTERN_CONSOLE
         value: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     
-    healthCheckPath: /actuator/health
+    healthCheckPath: /actuator/health/readiness
     dockerfile: Dockerfile
     dockerContext: ./
     scaling:
