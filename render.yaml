@@ -32,13 +32,7 @@ services:
       - key: DB_URL
       - key: DB_USER
       - key: DB_PASSWORD
-      
-      # Flyway Configuration (Database Migrations)
-      - key: FLYWAY_ENABLED
-        value: "true"
-      - key: FLYWAY_LOCATIONS
-        value: "classpath:db/migration"
-      
+    
       # JPA/Hibernate Configuration
       - key: JPA_OPEN_IN_VIEW
         value: "false"
