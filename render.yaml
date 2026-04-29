@@ -15,7 +15,7 @@ services:
       
       # API Configuration
       - key: FORWARD_HEADERS_STRATEGY
-        value: "X_FORWARDED"
+        value: "FRAMEWORK"
       - key: MVC_PROBLEMDTLS_ENABLED
         value: "true"
       - key: WEB_ERROR_INCLUDE_STACKTRACE
